@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Matriz de Priorização — Esforço x Impacto</title>
+<style>
+  :root{
+    --bg:#F7F5F0;
+    --panel:#FFFFFF;
+    --ink:#231F2C;
+    --ink-soft:#5B5668;
+    --line:#E4E0D6;
+    --line-strong:#CFC9BA;
+
+    --qw-fill:#E6F0E9; --qw-line:#2F6B4F; --qw-text:#1E4735;
+    --bb-fill:#E9EBF4; --bb-line:#3B4C86; --bb-text:#26325A;
+    --fi-fill:#FBF1DF; --fi-line:#B8862F; --fi-text:#7A5A1E;
+    --mp-fill:#F6E6E4; --mp-line:#A83E3E; --mp-text:#712A2A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  header{margin-bottom:22px;}
+  h1{font-size:21px;font-weight:600;margin:0 0 4px;letter-spacing:-0.01em;}
+  .sub{font-size:13.5px;color:var(--ink-soft);margin:0;}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:18px;
+  }
+
+  /* upload zone */
+  #dropzone{
+    border:1.5px dashed var(--line-strong);
+    border-radius:12px;
+    padding:28px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  #dropzone:hover, #dropzone.drag{
+    border-color:var(--bb-line);
+    background:#F2F2F8;
+  }
+  #dropzone .icon{font-size:26px;margin-bottom:6px;}
+  #dropzone .title{font-size:14.5px;font-weight:600;margin-bottom:2px;}
+  #dropzone .hint{font-size:12.5px;color:var(--ink-soft);}
+  #fileInput{display:none;}
+
+  .format-note{
+    font-size:11.5px;color:var(--ink-soft);margin-top:10px;line-height:1.5;
+    border-top:1px solid var(--line);padding-top:10px;
+  }
+  .format-note code{
+    background:#EFEBDF;padding:1px 5px;border-radius:4px;font-size:11px;
+  }
+
+  textarea#pasteArea{
+    width:100%;min-height:70px;margin-top:10px;
+    border:1px solid var(--line);border-radius:8px;
+    padding:10px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace;
+    resize:vertical;color:var(--ink);background:#FCFBF8;
+  }
+  .pasteRow{display:flex;gap:8px;align-items:center;margin-top:8px;}
+  .pasteRow button{
+    background:var(--ink);color:#fff;border:none;border-radius:7px;
+    padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .pasteRow button:hover{opacity:.88;}
+  .toggleLink{
+    font-size:12px;color:var(--bb-line);cursor:pointer;text-decoration:underline;
+    display:inline-block;margin-top:10px;
+  }
+
+  #app{display:none;}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .stats{display:flex;gap:18px;flex-wrap:wrap;}
+  .stat{font-size:12.5px;color:var(--ink-soft);}
+  .stat b{color:var(--ink);font-weight:600;}
+  #newFileBtn{
+    background:transparent;border:1px solid var(--line-strong);color:var(--ink);
+    border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;
+  }
+  #newFileBtn:hover{background:#EFEBDF;}
+
+  svg{width:100%;height:auto;display:block;}
+  .axis-label{font-size:12px;fill:var(--ink-soft);font-weight:600;}
+  .median-line{stroke:var(--line-strong);stroke-width:1;stroke-dasharray:4 4;}
+  .grid-line{stroke:var(--line);stroke-width:1;}
+  .pt{cursor:pointer;}
+  .pt circle{stroke:#fff;stroke-width:1.5;}
+  .pt-label{font-size:9.5px;fill:var(--ink);pointer-events:none;}
+
+  #tooltip{
+    position:absolute;display:none;
+    background:var(--ink);color:#fff;
+    padding:8px 11px;border-radius:8px;font-size:12px;
+    pointer-events:none;max-width:230px;line-height:1.45;z-index:10;
+  }
+  #tooltip b{display:block;font-size:12.5px;margin-bottom:2px;}
+  #tooltip .tag{font-size:10.5px;opacity:.75;}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);}
+  .legend-dot{width:9px;height:9px;border-radius:50%;}
+
+  .quad-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px;}
+  @media (max-width:640px){.quad-grid{grid-template-columns:1fr;}}
+  .quad-card{border-radius:12px;padding:14px 16px;border:1px solid;}
+  .quad-card.qw{background:var(--qw-fill);border-color:var(--qw-line);}
+  .quad-card.bb{background:var(--bb-fill);border-color:var(--bb-line);}
+  .quad-card.fi{background:var(--fi-fill);border-color:var(--fi-line);}
+  .quad-card.mp{background:var(--mp-fill);border-color:var(--mp-line);}
+  .quad-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .quad-title{font-size:13.5px;font-weight:700;}
+  .quad-card.qw .quad-title{color:var(--qw-text);}
+  .quad-card.bb .quad-title{color:var(--bb-text);}
+  .quad-card.fi .quad-title{color:var(--fi-text);}
+  .quad-card.mp .quad-title{color:var(--mp-text);}
+  .quad-desc{font-size:11px;color:var(--ink-soft);margin:0 0 8px;}
+  .quad-count{font-size:11px;font-weight:600;}
+  .quad-list{list-style:none;margin:0;padding:0;font-size:12.5px;}
+  .quad-list li{
+    padding:5px 0;border-top:1px solid rgba(0,0,0,.07);
+    display:flex;justify-content:space-between;gap:8px;
+  }
+  .quad-list li:first-child{border-top:none;}
+  .quad-list .name{flex:1;}
+  .quad-list .vals{color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .quad-empty{font-size:12px;color:var(--ink-soft);font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Matriz de priorização — Esforço × Impacto</h1>
+    <p class="sub">Suba uma planilha com Iniciativa, Esforço e Impacto e receba a matriz 2x2 classificada.</p>
+  </header>
+
+  <div class="card" id="uploadCard">
+    <div id="dropzone">
+      <div class="icon">📄</div>
+      <div class="title">Clique para escolher um arquivo ou arraste aqui</div>
+      <div class="hint">.csv, .tsv ou .txt exportado do Sheets/Excel</div>
+      <input type="file" id="fileInput" accept=".csv,.tsv,.txt">
+    </div>
+    <span class="toggleLink" id="togglePaste">ou colar os dados diretamente</span>
+    <div id="pasteWrap" style="display:none;">
+      <textarea id="pasteArea" placeholder="Cole aqui, incluindo o cabeçalho (Iniciativa, Esforço, Impacto)&#10;Ex: Dashboard de CX-CS	5	5"></textarea>
+      <div class="pasteRow">
+        <button id="pasteBtn">Gerar matriz</button>
+      </div>
+    </div>
+    <div class="format-note">
+      Formato esperado: 3 colunas — <code>Iniciativa</code>, <code>Esforço</code>, <code>Impacto</code> (nessa ordem, com cabeçalho). Aceita separador vírgula, ponto e vírgula ou tab, e números com vírgula decimal (ex: <code>2,5</code>).
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="card">
+      <div class="topbar">
+        <div class="stats">
+          <span class="stat"><b id="statCount">0</b> iniciativas</span>
+          <span class="stat">Mediana esforço: <b id="statMedE">–</b></span>
+          <span class="stat">Mediana impacto: <b id="statMedI">–</b></span>
+        </div>
+        <button id="newFileBtn">Carregar outra planilha</button>
+      </div>
+      <div style="position:relative;">
+        <svg id="chart" viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="tooltip"></div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--qw-line);"></span>Quick win</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--bb-line);"></span>Big bet</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--fi-line);"></span>Fill-in</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--mp-line);"></span>Money pit</div>
+      </div>
+    </div>
+
+    <div class="quad-grid">
+      <div class="quad-card qw">
+        <div class="quad-head"><span class="quad-title">Quick win</span><span class="quad-count" id="cnt-qw"></span></div>
+        <p class="quad-desc">Alto impacto, baixo esforço — priorizar primeiro.</p>
+        <ul class="quad-list" id="list-qw"></ul>
+      </div>
+      <div class="quad-card bb">
+        <div class="quad-head"><span class="quad-title">Big bet</span><span class="quad-count" id="cnt-bb"></span></div>
+        <p class="quad-desc">Alto impacto, alto esforço — planejar e fatiar.</p>
+        <ul class="quad-list" id="list-bb"></ul>
+      </div>
+      <div class="quad-card fi">
+        <div class="quad-head"><span class="quad-title">Fill-in</span><span class="quad-count" id="cnt-fi"></span></div>
+        <p class="quad-desc">Baixo impacto, baixo esforço — fazer com capacidade sobrando.</p>
+        <ul class="quad-list" id="list-fi"></ul>
+      </div>
+      <div class="quad-card mp">
+        <div class="quad-head"><span class="quad-title">Money pit</span><span class="quad-count" id="cnt-mp"></span></div>
+        <p class="quad-desc">Baixo impacto, alto esforço — descartar ou repensar.</p>
+        <ul class="quad-list" id="list-mp"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUAD_META = {
+  qw:{label:'Quick win', line:'var(--qw-line)'},
+  bb:{label:'Big bet', line:'var(--bb-line)'},
+  fi:{label:'Fill-in', line:'var(--fi-line)'},
+  mp:{label:'Money pit', line:'var(--mp-line)'}
+};
+
+function toNumber(raw){
+  if(raw==null) return NaN;
+  let s = String(raw).trim();
+  if(s==='') return NaN;
+  s = s.replace(/\./g,'').replace(',', '.');
+  if(!/^-?\d+(\.\d+)?$/.test(s)){
+    s = String(raw).trim().replace(',', '.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+
+function detectDelimiter(line){
+  const counts = {',':0,';':0,'\t':0};
+  let inQuotes=false;
+  for(const ch of line){
+    if(ch==='"') inQuotes=!inQuotes;
+    else if(!inQuotes && counts.hasOwnProperty(ch)) counts[ch]++;
+  }
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+function parseDelimited(text){
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = text.split('\n').filter(l=>l.trim()!=='');
+  if(lines.length<2) throw new Error('Não encontrei linhas suficientes de dados.');
+  const delim = detectDelimiter(lines[0]);
+
+  function parseLine(line){
+    const out=[]; let cur=''; let inQuotes=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){
+        if(inQuotes && line[i+1]==='"'){ cur+='"'; i++; }
+        else inQuotes=!inQuotes;
+      } else if(ch===delim && !inQuotes){
+        out.push(cur); cur='';
+      } else {
+        cur+=ch;
+      }
+    }
+    out.push(cur);
+    return out.map(s=>s.trim());
+  }
+
+  const header = parseLine(lines[0]).map(h=>h.toLowerCase());
+  let idxName=0, idxEffort=1, idxImpact=2;
+  const findCol = (keys)=> header.findIndex(h=> keys.some(k=>h.includes(k)));
+  const n = findCol(['inicia','nome','título','titulo','item']);
+  const e = findCol(['esforç','esforc','effort']);
+  const im = findCol(['impact']);
+  if(n>=0) idxName=n;
+  if(e>=0) idxEffort=e;
+  if(im>=0) idxImpact=im;
+
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cols = parseLine(lines[i]);
+    if(cols.length<3) continue;
+    const name = (cols[idxName]||'').trim();
+    const effort = toNumber(cols[idxEffort]);
+    const impact = toNumber(cols[idxImpact]);
+    if(!name || isNaN(effort) || isNaN(impact)) continue;
+    rows.push({name, effort, impact});
+  }
+  if(rows.length===0) throw new Error('Não consegui ler nenhuma linha válida. Confira se as colunas são Iniciativa, Esforço, Impacto.');
+  return rows;
+}
+
+function median(arr){
+  const s = [...arr].sort((a,b)=>a-b);
+  const mid = Math.floor(s.length/2);
+  return s.length%2!==0 ? s[mid] : (s[mid-1]+s[mid])/2;
+}
+
+function classify(item, medE, medI){
+  const highImpact = item.impact >= medI;
+  const lowEffort = item.effort <= medE;
+  if(highImpact && lowEffort) return 'qw';
+  if(highImpact && !lowEffort) return 'bb';
+  if(!highImpact && lowEffort) return 'fi';
+  return 'mp';
+}
+
+function fmt(n){
+  return (Math.round(n*10)/10).toString().replace('.', ',');
+}
+
+function render(rows){
+  const medE = median(rows.map(r=>r.effort));
+  const medI = median(rows.map(r=>r.impact));
+  rows.forEach(r=> r.quad = classify(r, medE, medI));
+
+  document.getElementById('uploadCard').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('statCount').textContent = rows.length;
+  document.getElementById('statMedE').textContent = fmt(medE);
+  document.getElementById('statMedI').textContent = fmt(medI);
+
+  const W=900, H=620, PAD_L=64, PAD_R=30, PAD_T=24, PAD_B=64;
+  const plotW = W-PAD_L-PAD_R, plotH = H-PAD_T-PAD_B;
+
+  const effortVals = rows.map(r=>r.effort);
+  const impactVals = rows.map(r=>r.impact);
+  const minE = Math.min(...effortVals), maxE = Math.max(...effortVals);
+  const minI = Math.min(...impactVals), maxI = Math.max(...impactVals);
+  const padE = (maxE-minE)*0.12 || 1;
+  const padI = (maxI-minI)*0.12 || 1;
+  const xMin = minE-padE, xMax = maxE+padE;
+  const yMin = minI-padI, yMax = maxI+padI;
+
+  const xScale = v => PAD_L + ( (v-xMin)/(xMax-xMin) ) * plotW;
+  const yScale = v => PAD_T + plotH - ( (v-yMin)/(yMax-yMin) ) * plotH;
+
+  const medXpx = xScale(medE);
+  const medYpx = yScale(medI);
+
+  let svg = '';
+
+  svg += `<rect x="${PAD_L}" y="${PAD_T}" width="${(medXpx-PAD_L)}" height="${(medYpx-PAD_T)}" fill="var(--qw-fill)" opacity="0.55"/>`;
+  svg += `<rect x="${medXpx}" y="${PAD_T}" width="${(PAD_L+plotW-medXpx)}" height="${(medYpx-PAD_T)}" fill="var(--bb-fill)" opacity="0.55"/>`;
+  svg += `<rect x="${PAD_L}" y="${medYpx}" width="${(medXpx-PAD_L)}" height="${(PAD_T+plotH-medYpx)}" fill="var(--fi-fill)" opacity="0.55"/>`;
+  svg += `<rect x="${medXpx}" y="${medYpx}" width="${(PAD_L+plotW-medXpx)}" height="${(PAD_T+plotH-medYpx)}" fill="var(--mp-fill)" opacity="0.55"/>`;
+
+  svg += `<line class="median-line" x1="${medXpx}" y1="${PAD_T}" x2="${medXpx}" y2="${PAD_T+plotH}"/>`;
+  svg += `<line class="median-line" x1="${PAD_L}" y1="${medYpx}" x2="${PAD_L+plotW}" y2="${medYpx}"/>`;
+
+  svg += `<rect x="${PAD_L}" y="${PAD_T}" width="${plotW}" height="${plotH}" fill="none" stroke="var(--line-strong)" stroke-width="1"/>`;
+
+  const qLabelStyle = 'font-size:11px;font-weight:700;letter-spacing:.02em;';
+  svg += `<text x="${PAD_L+8}" y="${PAD_T+16}" style="${qLabelStyle}" fill="var(--qw-text)">QUICK WIN</text>`;
+  svg += `<text x="${PAD_L+plotW-8}" y="${PAD_T+16}" text-anchor="end" style="${qLabelStyle}" fill="var(--bb-text)">BIG BET</text>`;
+  svg += `<text x="${PAD_L+8}" y="${PAD_T+plotH-8}" style="${qLabelStyle}" fill="var(--fi-text)">FILL-IN</text>`;
+  svg += `<text x="${PAD_L+plotW-8}" y="${PAD_T+plotH-8}" text-anchor="end" style="${qLabelStyle}" fill="var(--mp-text)">MONEY PIT</text>`;
+
+  svg += `<text class="axis-label" x="${PAD_L+plotW/2}" y="${H-20}" text-anchor="middle">Esforço →</text>`;
+  svg += `<text class="axis-label" x="${18}" y="${PAD_T+plotH/2}" text-anchor="middle" transform="rotate(-90 18 ${PAD_T+plotH/2})">Impacto →</text>`;
+
+  rows.forEach((r,i)=>{
+    const cx = xScale(r.effort), cy = yScale(r.impact);
+    const color = `var(--${r.quad}-line)`;
+    const shortName = r.name.length>26 ? r.name.slice(0,24)+'…' : r.name;
+    svg += `<g class="pt" data-idx="${i}">
+      <circle cx="${cx}" cy="${cy}" r="6" fill="${color}"/>
+      <text class="pt-label" x="${cx+9}" y="${cy+3}">${shortName.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</text>
+    </g>`;
+  });
+
+  document.getElementById('chart').innerHTML = svg;
+
+  const tooltip = document.getElementById('tooltip');
+  document.querySelectorAll('.pt').forEach(el=>{
+    const idx = +el.getAttribute('data-idx');
+    const r = rows[idx];
+    el.addEventListener('mousemove', (e)=>{
+      const wrapRect = el.closest('div').getBoundingClientRect();
+      tooltip.style.display='block';
+      tooltip.style.left = (e.clientX-wrapRect.left+14)+'px';
+      tooltip.style.top = (e.clientY-wrapRect.top+14)+'px';
+      tooltip.innerHTML = `<b>${r.name}</b>Esforço ${fmt(r.effort)} · Impacto ${fmt(r.impact)}<div class="tag">${QUAD_META[r.quad].label}</div>`;
+    });
+    el.addEventListener('mouseleave', ()=>{ tooltip.style.display='none'; });
+  });
+
+  ['qw','bb','fi','mp'].forEach(q=>{
+    const items = rows.filter(r=>r.quad===q).sort((a,b)=> (b.impact-b.effort) - (a.impact-a.effort) );
+    document.getElementById('cnt-'+q).textContent = items.length+' iniciativa'+(items.length===1?'':'s');
+    const listEl = document.getElementById('list-'+q);
+    if(items.length===0){
+      listEl.innerHTML = '<li class="quad-empty">Nenhuma iniciativa aqui.</li>';
+    } else {
+      listEl.innerHTML = items.map(it=>
+        `<li><span class="name">${it.name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span><span class="vals">E ${fmt(it.effort)} · I ${fmt(it.impact)}</span></li>`
+      ).join('');
+    }
+  });
+}
+
+function handleText(text){
+  try{
+    const rows = parseDelimited(text);
+    render(rows);
+  }catch(err){
+    alert('Não consegui processar os dados: ' + err.message);
+  }
+}
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+dropzone.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> handleText(reader.result);
+  reader.readAsText(file, 'UTF-8');
+});
+['dragover','dragenter'].forEach(ev=> dropzone.addEventListener(ev, (e)=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev=> dropzone.addEventListener(ev, (e)=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', (e)=>{
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> handleText(reader.result);
+  reader.readAsText(file, 'UTF-8');
+});
+
+document.getElementById('togglePaste').addEventListener('click', ()=>{
+  const w = document.getElementById('pasteWrap');
+  w.style.display = w.style.display==='none' ? 'block' : 'none';
+});
+document.getElementById('pasteBtn').addEventListener('click', ()=>{
+  const text = document.getElementById('pasteArea').value;
+  if(text.trim()==='') { alert('Cole os dados primeiro.'); return; }
+  handleText(text);
+});
+document.getElementById('newFileBtn').addEventListener('click', ()=>{
+  document.getElementById('app').style.display='none';
+  document.getElementById('uploadCard').style.display='block';
+  fileInput.value='';
+  document.getElementById('pasteArea').value='';
+});
+</script>
+</body>
+</html>
